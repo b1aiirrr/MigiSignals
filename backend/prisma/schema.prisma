@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Trade {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  signal       String   // EVEN or ODD
+  confidence   Float
+  stake        Float
+  result       String   // WIN, LOSS, or PENDING
+  payout       Float    @default(0)
+  profitLoss   Float    @default(0)
+  cumulativePL Float    @default(0)
+  tickValue    Float
+  lastDigit    Int
+  isSimulated  Boolean  @default(true)
+  sessionId    String?
+  session      Session? @relation(fields: [sessionId], references: [id])
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  totalTrades Int      @default(0)
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  totalPL     Float    @default(0)
+  isSimulated Boolean  @default(true)
+  trades      Trade[]
+}

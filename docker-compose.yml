@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  migi-engine:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: migi-signals-engine
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - DERIV_API_TOKEN=${DERIV_API_TOKEN}
+      - DERIV_APP_ID=${DERIV_APP_ID:-1089}
+      - DERIV_SYMBOL=${DERIV_SYMBOL:-1HZ10V}
+      - WS_PORT=8080
+      - BASE_STAKE=${BASE_STAKE:-1.00}
+      - TARGET_PROFIT=${TARGET_PROFIT:-50}
+      - STOP_LOSS=${STOP_LOSS:-20}
+      - MAX_CONSECUTIVE_LOSSES=${MAX_CONSECUTIVE_LOSSES:-7}
+      - SIMULATOR_MODE=${SIMULATOR_MODE:-true}
+      - DATABASE_URL=file:./data/migi.db
+    volumes:
+      - migi-data:/app/data
+    networks:
+      - migi-net
+
+volumes:
+  migi-data:
+
+networks:
+  migi-net:
+    driver: bridge
