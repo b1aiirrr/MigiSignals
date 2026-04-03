@@ -44,24 +44,19 @@ DATABASE_URL=file:./data/migi.db
 EOF
 
     echo "[2/5] 🚀 Uploading to server..."
-    ssh "$SERVER_USER@$SERVER_IP" "mkdir -p $PROJECT_DIR"
-    rsync -avz --delete \
-      --exclude 'node_modules' --exclude '.git' --exclude '.next' \
-      "$DEPLOY_DIR/" "$SERVER_USER@$SERVER_IP:$PROJECT_DIR/"
+    ssh "$SERVER_USER@$SERVER_IP" "mkdir -p $PROJECT_DIR && rm -rf $PROJECT_DIR/backend $PROJECT_DIR/nginx $PROJECT_DIR/docker-compose.yml"
+    scp -r "$DEPLOY_DIR"/* "$SERVER_USER@$SERVER_IP:$PROJECT_DIR/"
 
-    echo "[3/5] 🐳 Installing Docker (if needed)..."
-    ssh "$SERVER_USER@$SERVER_IP" "command -v docker > /dev/null 2>&1 || { curl -fsSL https://get.docker.com | sh; }"
-    ssh "$SERVER_USER@$SERVER_IP" "command -v docker-compose > /dev/null 2>&1 || docker compose version > /dev/null 2>&1 || { apt-get update && apt-get install -y docker-compose-plugin; }"
-
-    echo "[4/5] 🔨 Building and starting containers..."
-    ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose down 2>/dev/null || true"
-    ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose up -d --build"
-
-    echo "[5/5] ✅ Verifying deployment..."
-    sleep 8
-    echo ""
-    echo "--- Container Status ---"
-    ssh "$SERVER_USER@$SERVER_IP" "docker ps --filter name=migi --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+    echo "[3/5] 🐳 Installing and starting containers..."
+    ssh "$SERVER_USER@$SERVER_IP" "
+      command -v docker > /dev/null 2>&1 || { curl -fsSL https://get.docker.com | sh; }
+      command -v docker-compose > /dev/null 2>&1 || docker compose version > /dev/null 2>&1 || { apt-get update && apt-get install -y docker-compose-plugin; }
+      cd $PROJECT_DIR
+      docker compose down 2>/dev/null || true
+      docker compose up -d --build
+      sleep 5
+      docker ps --filter name=migi
+    "
 
     echo ""
     echo "╔══════════════════════════════════════════════════╗"

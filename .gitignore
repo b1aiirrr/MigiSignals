@@ -48,3 +48,6 @@ frontend/.next/
 
 # Gemini
 .gemini/
+
+.vercel
+.env*.local
