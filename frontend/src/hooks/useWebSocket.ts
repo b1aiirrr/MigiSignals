@@ -5,12 +5,14 @@ import { WSMessage, TickData, AnalysisResult, TradeExecution, RiskState } from '
 
 // Auto-detect protocol: use wss:// on HTTPS pages, ws:// on HTTP
 function getWsUrl(): string {
-  const envUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
-  // Upgrade to wss:// when served over HTTPS (e.g. Vercel)
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return envUrl.replace(/^ws:\/\//, 'wss://');
+  // If we are definitely on Vercel or a live site, hardcode the droplet IP to bypass Vercel Env Var issues
+  const isLive = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+  
+  if (isLive) {
+    return 'wss://134.122.102.195/ws'; // Forced DigitalOcean IP proxy
   }
-  return envUrl;
+  
+  return 'ws://localhost:8080'; // Local dev fallback
 }
 
 
