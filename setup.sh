@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════
-# MigiSignals — Server Deployment Script
-# Deploy backend engine to a remote server via Docker
+# MigiSignals — Server Deployment Script v2
+# Deploys backend engine + nginx WSS proxy via Docker
 # ═══════════════════════════════════════════════════
 
 set -e
@@ -20,13 +20,16 @@ echo ""
 case "${1:-deploy}" in
   deploy)
     echo "[1/5] 📦 Preparing files..."
-    
-    # Create a temp directory for deployment files
+
     DEPLOY_DIR=$(mktemp -d)
-    cp -r backend/* "$DEPLOY_DIR/"
+    # Copy backend source
+    cp -r backend "$DEPLOY_DIR/backend"
+    # Copy nginx config
+    cp -r nginx "$DEPLOY_DIR/nginx"
+    # Copy compose file
     cp docker-compose.yml "$DEPLOY_DIR/"
-    
-    # Create production .env file
+
+    # Create production .env
     cat > "$DEPLOY_DIR/.env" << EOF
 DERIV_API_TOKEN=${DERIV_API_TOKEN:-dtdKweBaSNLmXmw}
 DERIV_APP_ID=${DERIV_APP_ID:-1089}
@@ -42,46 +45,64 @@ EOF
 
     echo "[2/5] 🚀 Uploading to server..."
     ssh "$SERVER_USER@$SERVER_IP" "mkdir -p $PROJECT_DIR"
-    rsync -avz --delete --exclude 'node_modules' --exclude '.git' "$DEPLOY_DIR/" "$SERVER_USER@$SERVER_IP:$PROJECT_DIR/"
-    
+    rsync -avz --delete \
+      --exclude 'node_modules' --exclude '.git' --exclude '.next' \
+      "$DEPLOY_DIR/" "$SERVER_USER@$SERVER_IP:$PROJECT_DIR/"
+
     echo "[3/5] 🐳 Installing Docker (if needed)..."
-    ssh "$SERVER_USER@$SERVER_IP" "command -v docker >/dev/null 2>&1 || { curl -fsSL https://get.docker.com | sh; }"
-    ssh "$SERVER_USER@$SERVER_IP" "command -v docker-compose >/dev/null 2>&1 || docker compose version >/dev/null 2>&1 || { apt-get update && apt-get install -y docker-compose-plugin; }"
-    
-    echo "[4/5] 🔨 Building and starting container..."
+    ssh "$SERVER_USER@$SERVER_IP" "command -v docker > /dev/null 2>&1 || { curl -fsSL https://get.docker.com | sh; }"
+    ssh "$SERVER_USER@$SERVER_IP" "command -v docker-compose > /dev/null 2>&1 || docker compose version > /dev/null 2>&1 || { apt-get update && apt-get install -y docker-compose-plugin; }"
+
+    echo "[4/5] 🔨 Building and starting containers..."
     ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose down 2>/dev/null || true"
     ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose up -d --build"
-    
+
     echo "[5/5] ✅ Verifying deployment..."
-    sleep 5
-    ssh "$SERVER_USER@$SERVER_IP" "docker ps --filter name=migi-signals-engine --format '{{.Status}}'"
-    
+    sleep 8
     echo ""
-    echo "╔══════════════════════════════════════╗"
-    echo "║   ✅ Backend deployed successfully!  ║"
-    echo "║   WS: ws://$SERVER_IP:8080           ║"
-    echo "╚══════════════════════════════════════╝"
-    
+    echo "--- Container Status ---"
+    ssh "$SERVER_USER@$SERVER_IP" "docker ps --filter name=migi --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+
+    echo ""
+    echo "╔══════════════════════════════════════════════════╗"
+    echo "║   ✅ MigiSignals deployed successfully!          ║"
+    echo "║                                                  ║"
+    echo "║   🌐 Vercel (Live + Connected):                  ║"
+    echo "║      https://migisignals.vercel.app              ║"
+    echo "║   🖥️  Self-hosted (HTTP fallback):               ║"
+    echo "║      http://$SERVER_IP:3030                      ║"
+    echo "║   🔒 WSS Proxy:                                  ║"
+    echo "║      wss://$SERVER_IP/ws                         ║"
+    echo "╚══════════════════════════════════════════════════╝"
+
     # Cleanup
     rm -rf "$DEPLOY_DIR"
     ;;
-    
+
   stop)
     echo "Stopping MigiSignals on server..."
     ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose down"
     echo "✅ Stopped."
     ;;
-    
+
   logs)
-    ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose logs -f --tail 50"
+    SERVICE="${2:-migi-engine}"
+    ssh "$SERVER_USER@$SERVER_IP" "cd $PROJECT_DIR && docker compose logs -f --tail 50 $SERVICE"
     ;;
-    
+
   status)
-    ssh "$SERVER_USER@$SERVER_IP" "docker ps --filter name=migi-signals-engine"
+    ssh "$SERVER_USER@$SERVER_IP" "docker ps --filter name=migi --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
     ;;
-    
+
+  cert-trust)
+    echo "Opening browser to trust the self-signed cert..."
+    echo "Visit: https://$SERVER_IP"
+    echo "Click Advanced → Proceed to accept the self-signed certificate."
+    echo "After that, wss://$SERVER_IP/ws will work without browser blocks."
+    ;;
+
   *)
-    echo "Usage: $0 {deploy|stop|logs|status}"
+    echo "Usage: $0 {deploy|stop|logs [service]|status|cert-trust}"
     exit 1
     ;;
 esac

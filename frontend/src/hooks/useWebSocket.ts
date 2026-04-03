@@ -3,7 +3,17 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { WSMessage, TickData, AnalysisResult, TradeExecution, RiskState } from '../lib/types';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+// Auto-detect protocol: use wss:// on HTTPS pages, ws:// on HTTP
+function getWsUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+  // Upgrade to wss:// when served over HTTPS (e.g. Vercel)
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    return envUrl.replace(/^ws:\/\//, 'wss://');
+  }
+  return envUrl;
+}
+
+
 
 interface UseWebSocketReturn {
   isConnected: boolean;
@@ -31,7 +41,7 @@ export function useWebSocket(): UseWebSocketReturn {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(getWsUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {

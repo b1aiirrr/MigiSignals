@@ -1,0 +1,22 @@
+{
+  "name": "MigiSignals Trading Engine",
+  "short_name": "MigiSignals",
+  "description": "Real-time trading signal analysis and automation for Deriv synthetic indices.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030305",
+  "theme_color": "#00FF41",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
